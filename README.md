@@ -1,4 +1,4 @@
-# LWork_Agent Agent 
+# LWork_Agent 
 
 基于 **LangChain 1.x + LangGraph + FastAPI** 的智能体（Agent）后端脚手架。
 自带**登录鉴权 + 对话历史持久化（PostgreSQL）**，前端是零构建的静态页面，可直接部署。
