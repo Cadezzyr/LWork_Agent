@@ -1,0 +1,69 @@
+# ============================================================================
+# LangChain Agent API - dependencies for conda / venv / pip
+#
+#   Python >= 3.11 (3.11 / 3.12 recommended)
+#   Install: pip install -r requirements.txt
+#
+# KEEP THIS FILE ASCII-ONLY.
+# On Chinese Windows the locale codec is cp936/gbk, and pip decodes
+# requirements files with that codec unless the file is ASCII, carries a
+# UTF-8 BOM, or starts with a coding cookie such as
+# "# -*- coding: utf-8 -*-". Non-ASCII comments here break `pip install -r`
+# with UnicodeDecodeError: 'gbk' codec can't decode byte ...
+#
+# Versions below are the combination verified with this project.
+# langchain 1.x is sensitive to the langchain-core / langgraph family versions,
+# so they are pinned instead of left to the resolver. To track latest releases,
+# replace "==" with ">=" / ranges and let pip resolve, e.g.:
+#   langchain>=1.0,<2   langgraph>=1.0,<2   langchain-openai>=1.0,<2
+# ============================================================================
+
+# ---------- Core framework ----------
+langchain==1.2.9
+langchain-core==1.2.9
+
+# ---------- LangGraph runtime ----------
+# IMPORTANT: langgraph-prebuilt must stay in lockstep with langgraph.
+# langgraph 1.0.8 declares "langgraph-prebuilt>=1.0.7,<1.1.0", but prebuilt
+# 1.0.10 is built against a newer langgraph core and breaks at import time:
+#   ImportError: cannot import name 'ExecutionInfo' from 'langgraph.runtime'
+# langgraph-prebuilt does not declare a dependency on langgraph at all, so pip
+# cannot fix this for you - it must be pinned here.
+langgraph==1.0.8
+langgraph-prebuilt==1.0.7
+langgraph-checkpoint==4.0.0
+
+# ---------- Model provider (OpenAI-compatible protocol) ----------
+# Works with OpenAI / DeepSeek / Qwen DashScope-compatible / vLLM / Ollama / One-API
+langchain-openai==1.1.0
+
+# ---------- Model provider: DeepSeek official adapter ----------
+# Needed only when AGENT_PROVIDER=deepseek (see _build_deepseek in app/agent/llm.py).
+# langchain-deepseek 1.1.x requires langchain-core>=1.4.7 and langchain-openai>=1.3.1,
+# which conflicts with the pinned core 1.2.9 / openai 1.1.0 above; 1.0.1 matches.
+# If you prefer zero extra packages, just use AGENT_PROVIDER=openai together with
+# AGENT_BASE_URL=https://api.deepseek.com/v1 - the OpenAI-compatible path works too.
+langchain-deepseek==1.0.1
+
+# ---------- Web server ----------
+fastapi==0.128.0
+uvicorn[standard]==0.40.0
+
+# ---------- Database (login state + conversation history) ----------
+# PostgreSQL driver. Without it the service still starts, but falls back to
+# in-memory storage (accounts and chat history are lost on restart).
+# The pure-C wrapper `psycopg2-binary` needs no local build tools.
+psycopg2-binary==2.9.9
+
+# ---------- Config & HTTP ----------
+pydantic==2.12.5
+pydantic-settings==2.12.0
+python-dotenv==1.2.1
+httpx==0.28.1
+
+# ---------- Optional: Claude models (AGENT_PROVIDER=anthropic) ----------
+# langchain-anthropic>=1.0.0,<2.0.0
+
+# ---------- Optional: development & tests ----------
+# pytest==8.3.5
+# ruff>=0.5.0

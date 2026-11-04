@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>LangChain Agent</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234d6bfe'/%3E%3Ctext x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'%3EA%3C/text%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <!-- ==================== 登录 / 注册 ==================== -->
+    <div class="auth-screen" id="auth-screen" hidden>
+      <div class="auth-card">
+        <div class="brand brand--lg">
+          <span class="brand__logo">A</span>
+          <span>LangChain Agent</span>
+        </div>
+        <p class="auth-card__sub">登录后即可查看自己的历史对话</p>
+
+        <div class="auth-tabs" role="tablist">
+          <button class="auth-tab active" id="tab-login" type="button" role="tab">登录</button>
+          <button class="auth-tab" id="tab-register" type="button" role="tab">注册</button>
+        </div>
+
+        <form class="auth-form" id="auth-form" autocomplete="on">
+          <label class="field">
+            <span id="auth-identifier-label">用户名或邮箱</span>
+            <input id="auth-identifier" type="text" spellcheck="false" autocomplete="username" required />
+          </label>
+
+          <label class="field" id="auth-email-field" hidden>
+            <span>邮箱（可选，可用于登录）</span>
+            <input id="auth-email" type="email" spellcheck="false" autocomplete="email" />
+          </label>
+
+          <label class="field">
+            <span>密码</span>
+            <input id="auth-password" type="password" autocomplete="current-password" required />
+          </label>
+
+          <div class="auth-error" id="auth-error"></div>
+
+          <button class="primary-btn auth-submit" id="auth-submit" type="submit">登录</button>
+        </form>
+
+        <p class="auth-card__hint" id="auth-hint">
+          首次使用请先注册；账号与历史对话保存在服务端数据库中。
+        </p>
+      </div>
+    </div>
+
+    <!-- ==================== 侧边栏 ==================== -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar__head">
+        <div class="brand">
+          <span class="brand__logo">A</span>
+          <span>LangChain Agent</span>
+        </div>
+        <button class="btn-new" id="new-chat" type="button">
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" />
+          </svg>
+          新建对话
+        </button>
+      </div>
+
+      <div class="sidebar__label">
+        历史对话
+        <input class="session-search" id="session-search" type="search" placeholder="搜索标题…" />
+      </div>
+      <div class="session-list" id="session-list"></div>
+
+      <div class="sidebar__foot">
+        <div class="user-chip">
+          <span class="user-chip__avatar" id="user-avatar">?</span>
+          <span class="user-chip__name" id="user-name">未登录</span>
+          <button class="icon-btn" id="logout" type="button" title="退出登录">退出</button>
+        </div>
+        <div>
+          <span class="status-dot" id="status-dot"></span>
+          <span id="status-text">连接中…</span>
+        </div>
+        <div>模型：<strong id="model-name">—</strong></div>
+        <div>工具：<strong id="tool-count">—</strong></div>
+        <div>工作区：<strong id="workspace-name" title="—">—</strong></div>
+        <div>
+          <button class="icon-btn" id="clear-local" type="button" title="删除该账号的全部历史对话" style="width: auto; padding: 0 6px; font-size: 12px;">
+            清空全部对话
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ==================== 主区域 ==================== -->
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn" id="toggle-sidebar" type="button" title="显示/隐藏侧边栏">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" />
+          </svg>
+        </button>
+        <div class="topbar__title" id="chat-title">新对话</div>
+        <button class="link-btn" id="open-workspace" type="button" title="设置 Agent 可操作的工作区目录">
+          工作区
+        </button>
+        <a class="link-btn" href="/docs" target="_blank" rel="noopener">API 文档</a>
+      </header>
+
+      <div class="messages" id="messages">
+        <div class="messages__inner">
+          <div class="empty" id="empty-state">
+            <h1>有什么可以帮你的？</h1>
+            <p>当前后端已接入 LangChain Agent，支持工具调用、多轮记忆与流式输出。</p>
+            <div class="suggestions">
+              <button class="suggestion" type="button" data-prompt="帮我算一下 (3+4)*2.5 等于多少">
+                <b>工具调用</b>算一下 (3+4)*2.5 等于多少
+              </button>
+              <button class="suggestion" type="button" data-prompt="现在东京时间是几点？">
+                <b>实时信息</b>现在东京时间是几点？
+              </button>
+              <button class="suggestion" type="button" data-prompt="介绍一下 LangGraph 的 checkpointer 是怎么做多轮记忆的">
+                <b>知识检索</b>LangGraph 的 checkpointer 是怎么做多轮记忆的？
+              </button>
+              <button class="suggestion" type="button" data-prompt="/calc 12*12">
+                <b>离线自测</b>/calc 12*12（mock 模式下可直接跑通）
+              </button>
+            </div>
+          </div>
+
+          <div class="msg-log" id="chat-log"></div>
+        </div>
+      </div>
+
+      <div class="composer-wrap">
+        <div class="banner" id="banner"></div>
+        <div class="composer">
+          <textarea
+            id="input"
+            rows="1"
+            maxlength="8000"
+            placeholder="给 LangChain Agent 发送消息…（Enter 发送，Shift+Enter 换行）"
+          ></textarea>
+          <button class="send-btn" id="send" type="button" title="发送">
+            <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 12l16-8-6 8 6 8-16-8z" fill="currentColor" />
+            </svg>
+          </button>
+        </div>
+        <div class="hint-row">
+          <span>回复由 AI 生成，请自行核对关键信息</span>
+          <span>POST /api/v1/chat/stream（SSE）</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- ==================== 工作区设置弹窗 ==================== -->
+    <div class="modal" id="ws-modal" hidden>
+      <div class="modal__mask" data-close="1"></div>
+      <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="ws-title">
+        <header class="modal__head">
+          <h2 id="ws-title">工作区设置</h2>
+          <button class="icon-btn" type="button" data-close="1" title="关闭">✕</button>
+        </header>
+
+        <div class="modal__body">
+          <p class="modal__hint">
+            Agent 的文件工具（读/写/查/改/删）只能操作这个目录里的内容，越界会被拒绝。
+            <strong>每个账号各自独立，只对你自己生效；设置只保存在服务进程内存里，不写入配置文件</strong>，服务重启后回到默认（项目根目录）。<br />
+            关掉「允许写 / 删文件」时，终端工具（<code>run_command</code> / <code>run_python</code>）也会被禁用。
+          </p>
+
+          <label class="field">
+            <span>工作区根目录（绝对路径）</span>
+            <input id="ws-root" type="text" spellcheck="false" placeholder="D:\projects\demo" />
+          </label>
+
+          <div class="field__row">
+            <button class="ghost-btn" id="ws-validate" type="button">校验路径</button>
+            <button class="ghost-btn" id="ws-default" type="button">使用默认目录</button>
+            <label class="switch">
+              <input type="checkbox" id="ws-writes" />
+              <span>允许写 / 删文件</span>
+            </label>
+          </div>
+
+          <div class="modal__status" id="ws-status"></div>
+
+          <details class="ws-tree" id="ws-tree-box">
+            <summary>预览目录结构（确认路径选得对不对）</summary>
+            <pre id="ws-tree">（未加载）</pre>
+          </details>
+        </div>
+
+        <footer class="modal__foot">
+          <span class="modal__current" id="ws-current">—</span>
+          <div class="modal__actions">
+            <button class="ghost-btn" type="button" data-close="1">取消</button>
+            <button class="primary-btn" id="ws-save" type="button">保存</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+
+    <script src="./auth.js"></script>
+    <script src="./markdown.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

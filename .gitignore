@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+.deps/
+
+# 本地配置与密钥
+.env
+.env.*
+!.env.example
+
+# 缓存与日志
+.pytest_cache/
+.pytest-tmp/
+.ruff_cache/
+.mypy_cache/
+.pip-cache/
+.piptmp/
+logs/
+*.log
+
+# 工具/沙箱产生的临时目录
+.tmp/
+.deps/
+.pytest-tmp/
+tests/_workdir/
+pytest-cache-files-*/
+.trae-html-share-packages/
+.screenshots/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
