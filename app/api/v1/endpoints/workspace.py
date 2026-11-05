@@ -8,7 +8,7 @@
 - ``GET  /api/v1/workspace/tree``     预览目录结构（确认路径选得对不对）
 
 ⚠️ 工作区是**按用户隔离**的：每个登录用户都有自己的根目录与写权限，
-修改只影响自己（进程重启后回到默认的项目根目录）。
+修改只影响自己（进程重启后回到 AGENT_WORKSPACE_ROOT 指定的默认目录）。
 """
 
 from __future__ import annotations

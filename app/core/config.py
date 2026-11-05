@@ -82,6 +82,10 @@ class Settings(BaseSettings):
     max_tool_rounds: int = Field(default=8, ge=1, le=50)
     max_sessions: int = Field(default=1000, ge=1)
 
+    # ---------- 工作区 ----------
+    # 默认工作区根目录（每个用户可在页面「工作区」里自行修改，不落配置文件）
+    workspace_root: str = r"D:\LWork_Agent_Project"
+
     # ---------- 联网检索 ----------
     # auto: 有 search_api_key 就走 tavily，否则用 bing / duckduckgo 抓取
     search_provider: SearchProvider = "auto"
@@ -127,6 +131,7 @@ class Settings(BaseSettings):
     # ---------- 校验/解析 ----------
     @field_validator(
         "cors_origins", "enabled_tools", "system_prompt", "shell_allowlist", "auth_admin_usernames",
+        "workspace_root",
         mode="before",
     )
     @classmethod

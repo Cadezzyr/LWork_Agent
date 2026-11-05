@@ -1,8 +1,8 @@
 """工作区（Workspace）运行时配置与路径守卫。
 
 设计约定：
-- **工作区根目录不在任何配置文件里**，而是由前端页面通过 ``PUT /api/v1/workspace``
-  在运行时指定；进程重启后回到默认值（项目根目录）。
+- 工作区根目录的**用户改动只存在内存里**，由前端页面通过 ``PUT /api/v1/workspace``
+  在运行时指定；进程重启后回到默认值（``AGENT_WORKSPACE_ROOT``，默认 ``D:\LWork_Agent_Project``）。
 - **按用户隔离**：每个登录用户各有一份运行时配置，互不影响。请求入口通过
   :func:`bind_workspace_user` 把当前用户绑到协程上下文，文件工具 / 终端工具 /
   提示词中间件都通过 :func:`get_workspace_manager` 取到"当前用户的那一份"。
@@ -289,16 +289,18 @@ def bind_workspace_user(user_id: str | None) -> Iterator[None]:
 
 
 def _get_default_manager() -> WorkspaceManager:
-    """返回全局默认实例；未初始化时按项目根目录惰性创建。"""
+    """返回全局默认实例；未初始化时按 ``AGENT_WORKSPACE_ROOT`` 惰性创建。"""
     global _default_manager
     if _default_manager is not None:
         return _default_manager
-    from app.core.config import PROJECT_ROOT
+    from app.core.config import PROJECT_ROOT, get_settings
 
+    configured = get_settings().workspace_root.strip()
+    default_root = Path(configured).expanduser() if configured else PROJECT_ROOT
     with _manager_lock:
         if _default_manager is None:
-            _default_manager = WorkspaceManager(PROJECT_ROOT)
-            logger.info("工作区管理器未显式初始化，已回退到项目根目录：%s", PROJECT_ROOT)
+            _default_manager = WorkspaceManager(default_root)
+            logger.info("工作区管理器未显式初始化，已回退到默认目录：%s", default_root)
         return _default_manager
 
 

@@ -12,6 +12,8 @@ EXPECTED_TOOL_NAMES = {
     "calculator",
     "get_current_time",
     "search_knowledge_base",
+    # 技能
+    "load_skill",
     # 工作区文件
     "list_workspace_files",
     "read_workspace_file",

@@ -169,7 +169,7 @@
         <div class="modal__body">
           <p class="modal__hint">
             Agent 的文件工具（读/写/查/改/删）只能操作这个目录里的内容，越界会被拒绝。
-            <strong>每个账号各自独立，只对你自己生效；设置只保存在服务进程内存里，不写入配置文件</strong>，服务重启后回到默认（项目根目录）。<br />
+            <strong>每个账号各自独立，只对你自己生效；设置只保存在服务进程内存里，不写入配置文件</strong>，服务重启后回到默认目录（<code>AGENT_WORKSPACE_ROOT</code>）。<br />
             关掉「允许写 / 删文件」时，终端工具（<code>run_command</code> / <code>run_python</code>）也会被禁用。
           </p>
 

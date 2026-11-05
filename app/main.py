@@ -164,8 +164,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.conversation_service = None
     app.state.repository_warning = None
 
-    # 工作区默认是项目根目录；之后可在页面「工作区设置」里随时切换（仅内存态，不写配置文件）
-    init_workspace_manager(PROJECT_ROOT)
+    # 工作区默认目录由 AGENT_WORKSPACE_ROOT 指定（默认 D:\LWork_Agent_Project）；
+    # 之后每个用户都能在页面「工作区设置」里按需切换（仅内存态，不写配置文件）
+    workspace_root = Path(resolved.workspace_root.strip() or PROJECT_ROOT).expanduser()
+    try:
+        workspace_root.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        logger.warning(
+            "默认工作区目录不可用（%s：%s），回退到项目根目录 %s",
+            workspace_root,
+            exc,
+            PROJECT_ROOT,
+        )
+        workspace_root = PROJECT_ROOT
+    init_workspace_manager(workspace_root)
 
     origins = resolved.cors_origin_list
     app.add_middleware(

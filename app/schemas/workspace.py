@@ -14,10 +14,10 @@ class WorkspaceInfo(BaseModel):
     exists: bool = Field(description="目录是否存在")
     writable: bool = Field(description="当前进程对该目录是否有写权限")
     allow_writes: bool = Field(description="是否允许 Agent 写/删文件（页面上的开关）")
-    is_default: bool = Field(description="是否仍是默认值（项目根目录）")
+    is_default: bool = Field(description="是否仍是默认值（AGENT_WORKSPACE_ROOT）")
     updated_at: str = Field(description="最后一次修改时间（ISO8601）")
     file_count: int | None = Field(default=None, description="根目录下的条目数量（用于确认路径对不对）")
-    default_root: str = Field(description="默认工作区（项目根目录），可用于「恢复默认」")
+    default_root: str = Field(description="默认工作区（AGENT_WORKSPACE_ROOT），可用于「恢复默认」")
 
 
 class WorkspaceUpdateRequest(BaseModel):
