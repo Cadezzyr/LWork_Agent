@@ -437,7 +437,7 @@ AI：  ▸ run_command {"command": "python -m pytest -q"}   已完成
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `AGENT_APP_NAME` / `AGENT_ENV` / `AGENT_VERSION` | LangChain Agent API / dev / 0.1.0 | 服务元信息 |
+| `AGENT_APP_NAME` / `AGENT_ENV` / `AGENT_VERSION` | LWork_Agent / dev / 0.1.0 | 服务元信息 |
 | `AGENT_HOST` / `AGENT_PORT` | 127.0.0.1 / 8000 | `python -m app.main` 使用 |
 | `AGENT_API_PREFIX` | `/api/v1` | 路由前缀 |
 | `AGENT_CORS_ORIGINS` | `*` | 逗号分隔的允许来源 |

@@ -268,7 +268,7 @@
 
   function setTitle(text) {
     dom.title.textContent = text || "新对话";
-    document.title = text ? text + " · LangChain Agent" : "LangChain Agent";
+    document.title = text ? text + " · LWork_Agent" : "LWork_Agent";
   }
 
   function titleOf(id) {

@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     )
 
     # ---------- 应用基础 ----------
-    app_name: str = "LangChain Agent API"
+    app_name: str = "LWork_Agent"
     env: Literal["dev", "test", "prod"] = "dev"
     version: str = "0.1.0"
     log_level: str = "INFO"
