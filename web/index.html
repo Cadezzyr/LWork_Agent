@@ -116,17 +116,11 @@
             <h1>有什么可以帮你的？</h1>
             <p>当前后端已接入 LWork_Agent，支持工具调用、多轮记忆与流式输出。</p>
             <div class="suggestions">
-              <button class="suggestion" type="button" data-prompt="帮我算一下 (3+4)*2.5 等于多少">
-                <b>工具调用</b>算一下 (3+4)*2.5 等于多少
+              <button class="suggestion" type="button" data-prompt="帮我联网搜索一下 LangGraph 最新版本有哪些主要更新">
+                <b>联网检索相关内容</b>搜索 LangGraph 最新版本的主要更新
               </button>
-              <button class="suggestion" type="button" data-prompt="现在东京时间是几点？">
-                <b>实时信息</b>现在东京时间是几点？
-              </button>
-              <button class="suggestion" type="button" data-prompt="介绍一下 LangGraph 的 checkpointer 是怎么做多轮记忆的">
-                <b>知识检索</b>LangGraph 的 checkpointer 是怎么做多轮记忆的？
-              </button>
-              <button class="suggestion" type="button" data-prompt="/calc 12*12">
-                <b>离线自测</b>/calc 12*12（mock 模式下可直接跑通）
+              <button class="suggestion" type="button" data-prompt="读取工作区根目录下的 README.md，帮我总结一下这个项目">
+                <b>本地文件读取</b>读取当前工作区目录并总结项目内容
               </button>
             </div>
           </div>
@@ -173,18 +167,33 @@
             关掉「允许写 / 删文件」时，终端工具（<code>run_command</code> / <code>run_python</code>）也会被禁用。
           </p>
 
-          <label class="field">
-            <span>工作区根目录（绝对路径）</span>
-            <input id="ws-root" type="text" spellcheck="false" placeholder="D:\projects\demo" />
-          </label>
+          <div class="field">
+            <span>工作区根目录</span>
+            <div class="field__picker">
+              <input id="ws-root" type="text" readonly spellcheck="false" placeholder="请点击「选择文件夹」" />
+              <button class="ghost-btn" id="ws-pick" type="button">选择文件夹</button>
+            </div>
+          </div>
 
           <div class="field__row">
-            <button class="ghost-btn" id="ws-validate" type="button">校验路径</button>
             <button class="ghost-btn" id="ws-default" type="button">使用默认目录</button>
             <label class="switch">
               <input type="checkbox" id="ws-writes" />
               <span>允许写 / 删文件</span>
             </label>
+          </div>
+
+          <div class="dir-picker" id="ws-picker" hidden>
+            <div class="dir-picker__head">
+              <button class="ghost-btn" id="ws-picker-roots" type="button">此电脑</button>
+              <button class="ghost-btn" id="ws-picker-up" type="button">上一级</button>
+              <span class="dir-picker__path" id="ws-picker-path">此电脑</span>
+            </div>
+            <div class="dir-picker__list" id="ws-picker-list"></div>
+            <div class="dir-picker__foot">
+              <span class="dir-picker__hint">点击文件夹进入下一级</span>
+              <button class="primary-btn" id="ws-picker-choose" type="button" disabled>选择当前文件夹</button>
+            </div>
           </div>
 
           <div class="modal__status" id="ws-status"></div>

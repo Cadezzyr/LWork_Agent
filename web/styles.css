@@ -1065,6 +1065,32 @@ button {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 14%, transparent);
 }
 
+.field input[type="text"][readonly] {
+  background: var(--bg-soft);
+  color: var(--text-soft);
+  cursor: default;
+}
+
+.field input[type="text"][readonly]:focus {
+  border-color: var(--border-strong);
+  box-shadow: none;
+}
+
+.field__picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field__picker input[type="text"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.field__picker .ghost-btn {
+  flex: 0 0 auto;
+}
+
 .field__row {
   display: flex;
   flex-wrap: wrap;
@@ -1149,6 +1175,77 @@ button {
   font-size: 12px;
   color: var(--text-soft);
   white-space: pre-wrap;
+}
+
+/* 目录选择器：只列文件夹，逐级进入 */
+.dir-picker {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  overflow: hidden;
+}
+
+.dir-picker__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dir-picker__path {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dir-picker__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 210px;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.dir-picker__item {
+  padding: 6px 8px;
+  border-radius: 7px;
+  font-size: 12.8px;
+  color: var(--text-soft);
+  text-align: left;
+}
+
+.dir-picker__item:hover {
+  background: var(--bg);
+  color: var(--brand);
+}
+
+.dir-picker__empty {
+  padding: 8px;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.dir-picker__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+}
+
+.dir-picker__hint {
+  font-size: 12px;
+  color: var(--text-faint);
 }
 
 .modal__foot {

@@ -3,6 +3,7 @@
 前端页面通过这些接口切换 Agent 可操作的范围：
 
 - ``GET  /api/v1/workspace``          查看当前设置
+- ``GET  /api/v1/workspace/browse``   逐级浏览目录（前端「选择文件夹」用）
 - ``POST /api/v1/workspace/validate`` 校验一个候选目录（不生效，仅预览）
 - ``PUT  /api/v1/workspace``          应用新设置
 - ``GET  /api/v1/workspace/tree``     预览目录结构（确认路径选得对不对）
@@ -16,13 +17,15 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from app.agent.workspace import WorkspaceError, WorkspaceManager, get_workspace_manager
 from app.api.deps import CurrentUserDep
 from app.core.exceptions import AppError
 from app.core.logging import get_logger
 from app.schemas.workspace import (
+    WorkspaceBrowseEntry,
+    WorkspaceBrowseResponse,
     WorkspaceInfo,
     WorkspaceTreeEntry,
     WorkspaceTreeResponse,
@@ -122,6 +125,68 @@ async def validate_workspace(
         writable=writable,
         message=message,
     )
+
+
+def _list_roots() -> list[WorkspaceBrowseEntry]:
+    """列出可选的顶层节点：Windows 为所有存在的盘符，其他系统为 ``/``。"""
+    if os.name != "nt":
+        return [WorkspaceBrowseEntry(name="/", path="/")]
+
+    lister = getattr(os, "listdrives", None)
+    drives: list[str] = []
+    if callable(lister):
+        try:
+            drives = list(lister())
+        except OSError:
+            drives = []
+    if not drives:
+        drives = [
+            f"{letter}:\\"
+            for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            if Path(f"{letter}:\\").exists()
+        ]
+    return [WorkspaceBrowseEntry(name=drive, path=drive) for drive in drives]
+
+
+@router.get("/browse", response_model=WorkspaceBrowseResponse, summary="浏览目录（选择工作区用）")
+async def browse_directories(
+    current: CurrentUserDep,
+    path: str = Query(default="", description="要浏览的绝对路径；留空返回磁盘列表"),
+) -> WorkspaceBrowseResponse:
+    """只返回子目录，供前端「选择文件夹」逐级浏览；不读取任何文件内容。"""
+    roots = _list_roots()
+    raw = (path or "").strip().strip("\"'")
+    if not raw:
+        # 空路径表示"此电脑"：直接返回磁盘/根节点列表
+        return WorkspaceBrowseResponse(path="", parent=None, roots=roots, entries=roots)
+
+    candidate = Path(raw).expanduser()
+    if not candidate.is_absolute():
+        raise AppError("必须是绝对路径", status_code=400, code="invalid_workspace_path")
+    target = candidate.resolve()
+    if not target.is_dir():
+        raise AppError(f"目录不存在：{target}", status_code=400, code="invalid_workspace_path")
+
+    entries: list[WorkspaceBrowseEntry] = []
+    try:
+        with os.scandir(target) as items:
+            for item in items:
+                try:
+                    if item.is_dir():
+                        entries.append(
+                            WorkspaceBrowseEntry(name=item.name, path=str(target / item.name))
+                        )
+                except OSError:
+                    # 个别目录（坏软链、权限问题）读不到就跳过，不影响整体浏览
+                    continue
+    except OSError as exc:
+        raise AppError(
+            f"无法读取目录：{target}", status_code=400, code="invalid_workspace_path"
+        ) from exc
+
+    entries.sort(key=lambda entry: entry.name.lower())
+    parent = None if target.parent == target else str(target.parent)
+    return WorkspaceBrowseResponse(path=str(target), parent=parent, roots=roots, entries=entries)
 
 
 @router.get("/tree", response_model=WorkspaceTreeResponse, summary="预览工作区目录结构")

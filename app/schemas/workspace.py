@@ -42,6 +42,25 @@ class WorkspaceTreeResponse(BaseModel):
     entries: list[WorkspaceTreeEntry] = Field(default_factory=list)
 
 
+class WorkspaceBrowseEntry(BaseModel):
+    """目录选择器里的一项（只列目录，不列文件）。"""
+
+    name: str = Field(description="展示名称")
+    path: str = Field(description="绝对路径")
+
+
+class WorkspaceBrowseResponse(BaseModel):
+    """目录选择器的当前层级。
+
+    ``path`` 为空表示"此电脑"（磁盘列表），此时 ``entries`` 与 ``roots`` 相同。
+    """
+
+    path: str = Field(description="当前目录的绝对路径；空串表示磁盘列表")
+    parent: str | None = Field(default=None, description="上一级目录；已在顶层时为 null")
+    roots: list[WorkspaceBrowseEntry] = Field(default_factory=list, description="可选磁盘/根节点")
+    entries: list[WorkspaceBrowseEntry] = Field(default_factory=list, description="当前目录下的子目录")
+
+
 class WorkspaceValidateRequest(BaseModel):
     root: str = Field(description="待校验的目录（绝对路径）")
 

@@ -50,9 +50,15 @@
     openWorkspaceBtn: document.getElementById("open-workspace"),
     wsModal: document.getElementById("ws-modal"),
     wsRoot: document.getElementById("ws-root"),
+    wsPick: document.getElementById("ws-pick"),
     wsWrites: document.getElementById("ws-writes"),
-    wsValidate: document.getElementById("ws-validate"),
     wsDefault: document.getElementById("ws-default"),
+    wsPicker: document.getElementById("ws-picker"),
+    wsPickerPath: document.getElementById("ws-picker-path"),
+    wsPickerList: document.getElementById("ws-picker-list"),
+    wsPickerUp: document.getElementById("ws-picker-up"),
+    wsPickerRoots: document.getElementById("ws-picker-roots"),
+    wsPickerChoose: document.getElementById("ws-picker-choose"),
     wsSave: document.getElementById("ws-save"),
     wsStatus: document.getElementById("ws-status"),
     wsTree: document.getElementById("ws-tree"),
@@ -751,14 +757,77 @@
     // 工作区按账号隔离：每个登录用户都能改自己的那一份
     setWorkspaceStatus(info ? "当前：" + info.root : "", "");
 
+    dom.wsPicker.hidden = true;
     dom.wsModal.hidden = false;
-    dom.wsRoot.focus();
-    dom.wsRoot.select();
+    dom.wsPick.focus();
     loadWorkspaceTree();
   }
 
   function closeWorkspaceModal() {
     dom.wsModal.hidden = true;
+    dom.wsPicker.hidden = true;
+  }
+
+  /* 目录选择器：只在目录间逐级浏览，不提供手输路径 */
+
+  var pickerState = { path: "", parent: null };
+
+  async function openWorkspacePicker() {
+    dom.wsPicker.hidden = false;
+    var start = state.workspace && state.workspace.root ? state.workspace.root : "";
+    await browseDirectories(start);
+  }
+
+  async function browseDirectories(path) {
+    dom.wsPickerList.textContent = "加载中…";
+    dom.wsPickerChoose.disabled = true;
+    try {
+      var query = path ? "?path=" + encodeURIComponent(path) : "";
+      var data = await window.Auth.apiFetch("/workspace/browse" + query);
+      pickerState.path = data.path || "";
+      pickerState.parent = data.parent || null;
+      dom.wsPickerPath.textContent = data.path || "此电脑";
+      dom.wsPickerPath.title = data.path || "此电脑";
+      dom.wsPickerUp.disabled = !data.path;
+      dom.wsPickerChoose.disabled = !data.path;
+      renderPickerEntries(data.entries || []);
+    } catch (error) {
+      pickerState.path = "";
+      pickerState.parent = null;
+      dom.wsPickerPath.textContent = "此电脑";
+      dom.wsPickerUp.disabled = true;
+      dom.wsPickerChoose.disabled = true;
+      dom.wsPickerList.textContent = "读取失败：" + error.message;
+    }
+  }
+
+  function renderPickerEntries(entries) {
+    dom.wsPickerList.innerHTML = "";
+    if (!entries.length) {
+      var empty = document.createElement("div");
+      empty.className = "dir-picker__empty";
+      empty.textContent = "（没有子文件夹）";
+      dom.wsPickerList.appendChild(empty);
+      return;
+    }
+    entries.forEach(function (item) {
+      var row = document.createElement("button");
+      row.type = "button";
+      row.className = "dir-picker__item";
+      row.textContent = "📁 " + item.name;
+      row.title = item.path;
+      row.addEventListener("click", function () {
+        browseDirectories(item.path);
+      });
+      dom.wsPickerList.appendChild(row);
+    });
+  }
+
+  function chooseCurrentFolder() {
+    if (!pickerState.path) return;
+    dom.wsRoot.value = pickerState.path;
+    dom.wsPicker.hidden = true;
+    validateWorkspacePath();
   }
 
   async function loadWorkspaceTree() {
@@ -782,7 +851,7 @@
   async function validateWorkspacePath() {
     var root = dom.wsRoot.value.trim();
     if (!root) {
-      setWorkspaceStatus("请输入绝对路径", "err");
+      setWorkspaceStatus("请先选择文件夹", "err");
       return;
     }
     setWorkspaceStatus("校验中…", "");
@@ -1256,17 +1325,19 @@
 
     // 工作区设置弹窗
     dom.openWorkspaceBtn.addEventListener("click", openWorkspaceModal);
-    dom.wsValidate.addEventListener("click", validateWorkspacePath);
-    dom.wsSave.addEventListener("click", saveWorkspace);
-    dom.wsRoot.addEventListener("keydown", function (event) {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        validateWorkspacePath();
-      }
+    dom.wsPick.addEventListener("click", openWorkspacePicker);
+    dom.wsPickerRoots.addEventListener("click", function () {
+      browseDirectories("");
     });
+    dom.wsPickerUp.addEventListener("click", function () {
+      if (pickerState.parent) browseDirectories(pickerState.parent);
+    });
+    dom.wsPickerChoose.addEventListener("click", chooseCurrentFolder);
+    dom.wsSave.addEventListener("click", saveWorkspace);
     dom.wsDefault.addEventListener("click", function () {
       var info = state.workspace;
       dom.wsRoot.value = info ? info.default_root : "";
+      dom.wsPicker.hidden = true;
       validateWorkspacePath();
     });
     dom.wsTreeBox.addEventListener("toggle", function () {
@@ -1276,7 +1347,12 @@
       if (event.target.closest("[data-close]")) closeWorkspaceModal();
     });
     document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape" && !dom.wsModal.hidden) closeWorkspaceModal();
+      if (event.key !== "Escape") return;
+      if (!dom.wsPicker.hidden) {
+        dom.wsPicker.hidden = true;
+        return;
+      }
+      if (!dom.wsModal.hidden) closeWorkspaceModal();
     });
   }
 
