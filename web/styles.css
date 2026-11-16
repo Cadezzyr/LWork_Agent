@@ -113,6 +113,15 @@ button {
   flex: 0 0 auto;
 }
 
+/* 项目 logo（图片版）：去掉占位色块，按容器尺寸等比填充 */
+img.brand__logo {
+  background: none;
+  object-fit: cover;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.18);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 .btn-new {
   width: 100%;
   display: flex;
