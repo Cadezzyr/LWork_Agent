@@ -31,6 +31,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.agent.factory import build_agent_runtime
+from app.agent.mcps import build_mcp_manager
 from app.agent.workspace import get_workspace_manager, init_workspace_manager
 from app.api.v1.router import api_router
 from app.core.config import PROJECT_ROOT, Settings, get_settings
@@ -99,9 +100,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     for warning in settings.auth_warnings():
         logger.warning("认证配置提醒：%s", warning)
 
-    # ---------- 2) Agent 运行时 ----------
+    # ---------- 2) MCP 外部工具（可选：未配置/未安装依赖时自动跳过） ----------
+    mcp_manager = build_mcp_manager(settings)
+    app.state.mcp_manager = mcp_manager
+    mcp_tools = await mcp_manager.load_tools()
+
+    # ---------- 3) Agent 运行时 ----------
     try:
-        runtime = build_agent_runtime(settings)
+        runtime = build_agent_runtime(
+            settings,
+            extra_tools=mcp_tools,
+            mcp_manager=mcp_manager,
+        )
     except AppError as exc:
         app.state.runtime_error = exc.message
         logger.error("智能体初始化失败：%s", exc.message)
@@ -119,10 +129,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.runtime_error = None
         workspace = get_workspace_manager()
         logger.info(
-            "启动完成：http://%s:%s/（%s 个工具，工作区 %s，存储 %s）",
+            "启动完成：http://%s:%s/（%s 个工具，MCP %s 个服务器 / %s 个工具，工作区 %s，存储 %s）",
             settings.host,
             settings.port,
             len(runtime.tools),
+            len(mcp_manager.server_names),
+            len(mcp_tools),
             workspace.root,
             bundle.repositories.backend,
         )
@@ -131,6 +143,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     app.state.runtime = None
     app.state.agent_service = None
+    await mcp_manager.close()
+    app.state.mcp_manager = None
     if app.state.database is not None:
         app.state.database.close()
     app.state.database = None
@@ -157,6 +171,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.runtime = None
     app.state.agent_service = None
     app.state.runtime_error = None
+    # MCP 客户端在 lifespan 里构建（需要异步加载工具）
+    app.state.mcp_manager = None
     # 数据层在 lifespan 里初始化（需要异步/线程池，且失败不能阻塞应用创建）
     app.state.repositories = None
     app.state.database = None

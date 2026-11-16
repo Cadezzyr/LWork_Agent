@@ -128,10 +128,21 @@ class Settings(BaseSettings):
     # 例：shell_allowlist="git,python,dir,ls,cat" 后其它命令一律拒绝
     shell_allowlist: str = ""
 
+    # ---------- MCP（Model Context Protocol）外部工具 ----------
+    # 总开关：false 时忽略下面的服务器配置（便于临时排障）
+    mcp_enabled: bool = True
+    # 内联 JSON：{"server_name": {"transport": "stdio", "command": "python", "args": [...]}}
+    # 远程示例：{"server_name": {"transport": "http", "url": "http://localhost:8000/mcp"}}
+    mcp_servers: str = ""
+    # 也可以指向一个 JSON 文件（支持 Claude Desktop 的 {"mcpServers": {...}} 结构）
+    mcp_config_file: str = ""
+    # 连接 / 拉取工具列表的超时（秒）
+    mcp_timeout: float = Field(default=30.0, gt=0, le=600)
+
     # ---------- 校验/解析 ----------
     @field_validator(
         "cors_origins", "enabled_tools", "system_prompt", "shell_allowlist", "auth_admin_usernames",
-        "workspace_root",
+        "workspace_root", "mcp_servers", "mcp_config_file",
         mode="before",
     )
     @classmethod

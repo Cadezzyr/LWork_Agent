@@ -17,12 +17,6 @@ try:  # pragma: no cover - 依赖版本不匹配时给出可操作的提示
 except ImportError as exc:  # noqa: BLE001
     raise AgentUnavailableError(
         "LangChain 依赖导入失败："
-        f"{type(exc).__name__}: {exc}\n"
-        "最常见原因是 langgraph 与 langgraph-prebuilt 版本不匹配"
-        "（例如 langgraph 1.0.8 搭配 langgraph-prebuilt 1.0.10 会报 "
-        "cannot import name 'ExecutionInfo' from 'langgraph.runtime'）。\n"
-        "请在项目所用解释器里执行 `pip install -r requirements.txt`，"
-        "或手动对齐：pip install \"langgraph-prebuilt==1.0.7\" \"langgraph-checkpoint==4.0.0\"。"
     ) from exc
 
 from app.agent.llm import build_chat_model
@@ -40,6 +34,7 @@ class AgentRuntime:
 
     - ``graph``：编译后的 LangGraph 状态图，支持 invoke / ainvoke / astream
     - ``checkpointer``：会话记忆存储（内存实现，进程重启即丢失）
+    - ``mcp_manager``：MCP 客户端（启用 MCP 时非空，进程退出时需要 close）
     """
 
     settings: Settings
@@ -47,11 +42,17 @@ class AgentRuntime:
     model: BaseChatModel
     tools: list[BaseTool]
     checkpointer: Any
+    mcp_manager: Any = None
     created_at: float = field(default_factory=time.time)
 
     @property
     def tool_names(self) -> list[str]:
         return [item.name for item in self.tools]
+
+    @property
+    def mcp_server_names(self) -> list[str]:
+        manager = self.mcp_manager
+        return list(manager.server_names) if manager is not None else []
 
     @property
     def system_prompt(self) -> str:
@@ -62,22 +63,43 @@ class AgentRuntime:
         return {"configurable": {"thread_id": session_id}}
 
 
+def _merge_tools(base: list[BaseTool], extra: list[BaseTool]) -> list[BaseTool]:
+    """合并内置工具与外部（MCP）工具；重名时保留内置的并告警。
+
+    模型靠工具名区分能力，同名工具会让调用变得不可预测，因此这里选择"保留先来的"。
+    """
+    merged = list(base)
+    seen = {item.name for item in merged}
+    for tool in extra:
+        if tool.name in seen:
+            logger.warning("外部工具 %s 与已有工具重名，已跳过", tool.name)
+            continue
+        seen.add(tool.name)
+        merged.append(tool)
+    return merged
+
+
 def build_agent_runtime(
     settings: Settings,
     *,
     checkpointer: Any | None = None,
     model: BaseChatModel | None = None,
+    extra_tools: list[BaseTool] | None = None,
+    mcp_manager: Any | None = None,
 ) -> AgentRuntime:
     """构建 Agent 运行时；配置有问题时抛出 ``AgentUnavailableError``。
 
     ``model`` / ``checkpointer`` 主要给测试用：可以注入记录型模型或共享检查点，
-    正常启动时留空即可。
+    正常启动时留空即可。``extra_tools`` 用于接入外部工具（目前是 MCP），
+    与 ``AGENT_ENABLED_TOOLS`` 无关——后者只筛选内置工具。
     """
     unknown = resolve_unknown_tools(settings.tool_names)
     if unknown:
         logger.warning("以下工具未注册，已忽略：%s", ", ".join(unknown))
 
     tools = get_tools(settings.tool_names)
+    if extra_tools:
+        tools = _merge_tools(tools, extra_tools)
     for tool in tools:
         logger.info("tools:"+tool.name)
         #logger.info(tool.description)
@@ -99,6 +121,8 @@ def build_agent_runtime(
         ToolCallLimitMiddleware(run_limit=settings.max_tool_rounds, exit_behavior="continue"),
         # 把"当前工作区根目录/写权限"注入系统提示词（工作区由前端页面在运行时设置）
         WorkspaceContextMiddleware(),
+        # 注意：MCP 工具名是运行时才知道的，不会出现在下面的白名单里；
+        # HumanInTheLoopMiddleware 对未列出的工具默认不打断，因此 MCP 工具会直接执行。
         HumanInTheLoopMiddleware(
             interrupt_on={
                 # "run_command": {
@@ -163,4 +187,5 @@ def build_agent_runtime(
         model=model,
         tools=tools,
         checkpointer=memory,
+        mcp_manager=mcp_manager,
     )

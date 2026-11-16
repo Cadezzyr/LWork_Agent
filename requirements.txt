@@ -67,3 +67,10 @@ httpx==0.28.1
 # ---------- Optional: development & tests ----------
 # pytest==8.3.5
 # ruff>=0.5.0
+
+# ---------- Optional: MCP (Model Context Protocol) tools ----------
+# Needed by app/agent/mcps (AGENT_MCP_SERVERS / AGENT_MCP_CONFIG_FILE).
+# Optional at runtime: without it the service still starts and simply skips
+# MCP tools, so leave this commented out if you do not use MCP.
+# Pulls in the official `mcp` SDK; requires Python >= 3.10.
+# langchain-mcp-adapters>=0.1.0
