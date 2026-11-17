@@ -332,7 +332,7 @@
 
   /**
    * 创建一条助手消息容器。
-   * 返回 { root, tools, content, meta } 供流式过程增量更新。
+   * 返回 { root, trace, thought, tools, content, meta } 供流式过程增量更新。
    */
   function createAssistantMessage() {
     hideEmptyState();
@@ -346,9 +346,44 @@
     var body = document.createElement("div");
     body.className = "msg__body";
 
+    // 思考过程：推理增量 / 工具调用前的模型说明 + 工具结果，使用等宽字体
+    var trace = document.createElement("details");
+    trace.className = "trace";
+    trace.hidden = true;
+    trace.open = true;
+
+    var traceSummary = document.createElement("summary");
+    traceSummary.className = "trace__summary";
+    var chevron = document.createElement("span");
+    chevron.className = "trace__chevron";
+    var traceTitle = document.createElement("span");
+    traceTitle.className = "trace__title";
+    traceTitle.textContent = "思考过程";
+    var traceStatus = document.createElement("span");
+    traceStatus.className = "trace__status";
+    traceStatus.textContent = "思考中…";
+    traceSummary.appendChild(chevron);
+    traceSummary.appendChild(traceTitle);
+    traceSummary.appendChild(traceStatus);
+    // 程序化改 open 也会触发 toggle，因此用点击标记“用户手动操作过”
+    traceSummary.addEventListener("click", function () {
+      trace.dataset.userToggled = "1";
+    });
+
+    var traceBody = document.createElement("div");
+    traceBody.className = "trace__body";
+    var thought = document.createElement("div");
+    thought.className = "trace__thought";
+    thought.hidden = true;
+
     var tools = document.createElement("div");
     tools.className = "tools";
     tools.hidden = true;
+
+    traceBody.appendChild(thought);
+    traceBody.appendChild(tools);
+    trace.appendChild(traceSummary);
+    trace.appendChild(traceBody);
 
     var approvals = document.createElement("div");
     approvals.className = "approvals";
@@ -366,7 +401,7 @@
     meta.className = "msg__meta";
     meta.hidden = true;
 
-    body.appendChild(tools);
+    body.appendChild(trace);
     body.appendChild(approvals);
     body.appendChild(content);
     body.appendChild(meta);
@@ -377,6 +412,10 @@
 
     return {
       root: root,
+      trace: trace,
+      traceTitle: traceTitle,
+      traceStatus: traceStatus,
+      thought: thought,
       tools: tools,
       approvals: approvals,
       content: content,
@@ -384,6 +423,57 @@
       thinking: thinking,
       partial: "",
     };
+  }
+
+  /** 思考面板进入“进行中”状态：显示、展开并更新状态文案。 */
+  function traceMarkActive(node, statusText) {
+    if (!node.trace) return;
+    node.trace.hidden = false;
+    node.trace.classList.remove("trace--done");
+    node.trace.classList.add("trace--active");
+    if (statusText) node.traceStatus.textContent = statusText;
+    if (node.trace.dataset.userToggled !== "1") node.trace.open = true;
+  }
+
+  /** 只更新总结栏状态（不强制展开/收起）。 */
+  function traceSetStatus(node, text, active) {
+    if (!node.traceStatus) return;
+    node.traceStatus.textContent = text || "";
+    node.trace.classList.toggle("trace--active", !!active);
+  }
+
+  /** 往思考面板追加一段等宽文本；separator=true 时与上一段之间空一行。 */
+  function traceAppendThought(node, text, separator) {
+    if (!text) return;
+    traceMarkActive(node);
+    node.thought.hidden = false;
+    if (separator && node.thought.childNodes.length) {
+      node.thought.appendChild(document.createTextNode("\n\n"));
+    }
+    node.thought.appendChild(document.createTextNode(text));
+    scrollToBottom();
+  }
+
+  /**
+   * 推理/工具阶段结束：自动收起思考面板（用户手动操作过则尊重用户）。
+   * 同一轮只执行一次；后续工具轮次会清除 autoCollapsed 重新展开。
+   */
+  function traceAutoCollapse(node, statusText) {
+    if (!node.trace || node.trace.hidden) return;
+    if (node.trace.dataset.autoCollapsed === "1") return;
+    node.trace.dataset.autoCollapsed = "1";
+    node.trace.classList.remove("trace--active");
+    node.trace.classList.add("trace--done");
+    node.traceStatus.textContent = statusText || "已完成";
+    if (node.trace.dataset.userToggled !== "1") node.trace.open = false;
+  }
+
+  function traceDoneText(node) {
+    var count = node.tools ? node.tools.querySelectorAll(".tool").length : 0;
+    var failed = node.tools ? node.tools.querySelectorAll(".tool.error").length : 0;
+    var label = failed ? "已结束" : "已完成";
+    if (!count) return label;
+    return label + " · " + count + " 次工具调用" + (failed ? "（" + failed + " 次失败）" : "");
   }
 
   function toolCard(toolsBox, call) {
@@ -688,6 +778,9 @@
       node.partial = outcome.aggregated;
       setCardNote(card, "已按你的决定继续");
     } catch (error) {
+      if (node.trace && !node.trace.hidden) {
+        traceSetStatus(node, error.name === "AbortError" ? "已停止" : "已失败", false);
+      }
       if (error.name === "AbortError") {
         setCardNote(card, "已断开接收，工具可能已执行，可刷新页面查看结果", true);
       } else {
@@ -969,12 +1062,18 @@
         if (node.thinking && node.thinking.parentNode) node.thinking.remove();
         var calls = message.tool_calls || [];
         if (calls.length) {
+          // 带工具调用的历史消息：说明文本与工具结果都收进思考面板（默认折叠）
+          traceMarkActive(node);
+          traceAppendThought(node, message.content || "");
           calls.forEach(function (call) {
             var card = toolCard(node.tools, call);
             card.card.classList.remove("running");
+            if (call.status === "error") card.card.classList.add("error");
             card.label.textContent = call.status === "error" ? "失败" : "已完成";
             card.result.textContent = call.result || "（无返回内容）";
           });
+          traceAutoCollapse(node, traceDoneText(node));
+          return;
         }
         setContentMarkdown(node.content, message.content || "", false);
         return;
@@ -1102,20 +1201,46 @@
             );
             setTitle(titleOf(data.session_id));
           }
+        } else if (event === "thinking") {
+          if (node.thinking && node.thinking.parentNode) node.thinking.remove();
+          if (node.trace) delete node.trace.dataset.autoCollapsed;
+          traceMarkActive(node, "思考中…");
+          traceAppendThought(node, data.content || "");
         } else if (event === "token") {
           if (node.thinking && node.thinking.parentNode) node.thinking.remove();
+          // 推理/工具阶段结束、正文开始输出：自动收起思考面板
+          traceAutoCollapse(node, traceDoneText(node));
           progress.aggregated += data.content || "";
           setContentMarkdown(node.content, progress.aggregated, true);
           scrollToBottom();
         } else if (event === "tool_call") {
           if (node.thinking && node.thinking.parentNode) node.thinking.remove();
+          // 工具调用前模型已流式输出的说明文本属于“思考过程”：搬进面板并清空正文
+          if (node.trace) delete node.trace.dataset.autoCollapsed;
+          if (progress.aggregated) {
+            traceAppendThought(node, progress.aggregated, true);
+            progress.aggregated = "";
+            node.content.innerHTML = "";
+          }
+          traceMarkActive(node, "调用工具 " + (data.name || "tool") + "…");
           toolCard(node.tools, data);
         } else if (event === "tool_result") {
           fillToolResult(node.tools, data);
+          if (node.trace && !node.trace.hidden) {
+            traceSetStatus(
+              node,
+              data.status === "error" ? "工具调用失败，继续处理…" : "工具已返回，继续思考…",
+              true
+            );
+          }
         } else if (event === "interrupt") {
           // Agent 暂停，等用户点 approve / edit / reject
           interrupted = true;
           if (node.thinking && node.thinking.parentNode) node.thinking.remove();
+          if (node.trace && !node.trace.hidden) {
+            traceSetStatus(node, "等待确认…", false);
+            delete node.trace.dataset.autoCollapsed;
+          }
           if (progress.aggregated) setContentMarkdown(node.content, progress.aggregated, false);
           renderApproval(node, data);
         } else if (event === "final") {
@@ -1127,6 +1252,7 @@
             : ((performance.now() - startedAt) / 1000).toFixed(1) + "s";
           var tokens = usage && usage.total_tokens ? " · " + usage.total_tokens + " tokens" : "";
           var toolCount = (data.tool_calls || []).length;
+          traceAutoCollapse(node, traceDoneText(node));
           appendMeta(
             node.meta,
             seconds + tokens + (toolCount ? " · 工具调用 " + toolCount + " 次" : "")
@@ -1137,6 +1263,7 @@
           scrollToBottom();
         } else if (event === "error") {
           if (node.thinking && node.thinking.parentNode) node.thinking.remove();
+          if (node.trace && !node.trace.hidden) traceSetStatus(node, "出错了", false);
           var errBox = document.createElement("div");
           errBox.className = "msg__error";
           errBox.textContent = "出错了：" + (data.message || data.code || "未知错误");
@@ -1197,6 +1324,9 @@
       if (state.sessionId) loadSessions(dom.sessionSearch.value.trim() || undefined);
     } catch (error) {
       if (node.thinking && node.thinking.parentNode) node.thinking.remove();
+      if (node.trace && !node.trace.hidden) {
+        traceSetStatus(node, error.name === "AbortError" ? "已停止" : "已失败", false);
+      }
       if (error.name === "AbortError") {
         setContentMarkdown(node.content, progress.aggregated || "（已停止生成）", false);
         appendMeta(node.meta, "已手动停止");

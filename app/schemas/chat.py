@@ -183,6 +183,14 @@ class StreamEventData(BaseModel):
     """SSE 事件载荷说明（仅用于文档展示）。"""
 
     event: Literal[
-        "session", "token", "tool_call", "tool_result", "interrupt", "final", "error", "done"
+        "session",
+        "thinking",
+        "token",
+        "tool_call",
+        "tool_result",
+        "interrupt",
+        "final",
+        "error",
+        "done",
     ] = Field(description="SSE 事件名")
     data: dict[str, Any] = Field(default_factory=dict, description="事件载荷")

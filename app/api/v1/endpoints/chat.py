@@ -54,7 +54,7 @@ async def chat(
     responses={
         200: {
             "description": (
-                "SSE 流；事件类型：session / token / tool_call / tool_result / final / error / done"
+                "SSE 流；事件类型：session / thinking / token / tool_call / tool_result / final / error / done"
             ),
             "content": {"text/event-stream": {"schema": StreamEventData.model_json_schema()}},
         }
@@ -95,7 +95,7 @@ async def chat_stream(
     responses={
         200: {
             "description": (
-                "SSE 流；事件类型：token / tool_call / tool_result / interrupt / final / error / done"
+                "SSE 流；事件类型：thinking / token / tool_call / tool_result / interrupt / final / error / done"
             ),
             "content": {"text/event-stream": {"schema": StreamEventData.model_json_schema()}},
         },

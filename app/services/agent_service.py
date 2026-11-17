@@ -514,6 +514,33 @@ class AgentService:
                 }
             yield "done", {"session_id": conversation.id}
 
+    @staticmethod
+    def _reasoning_text(chunk: Any) -> str:
+        """提取流式 chunk 里的推理增量（不属于正式回复）。
+
+        兼容两类上游：
+        - DeepSeek：``additional_kwargs["reasoning_content"]``；
+        - 以内容块返回推理的提供商：``type`` 为 ``reasoning`` / ``thinking`` 的块。
+        """
+        kwargs = getattr(chunk, "additional_kwargs", None) or {}
+        for key in ("reasoning_content", "reasoning"):
+            value = kwargs.get(key) if isinstance(kwargs, dict) else None
+            if isinstance(value, str) and value:
+                return value
+        content = getattr(chunk, "content", None)
+        if isinstance(content, list):
+            parts: list[str] = []
+            for block in content:
+                if not isinstance(block, dict):
+                    continue
+                if block.get("type") not in {"reasoning", "thinking"}:
+                    continue
+                text = block.get("reasoning") or block.get("thinking") or block.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+            return "".join(parts)
+        return ""
+
     async def _stream_graph(
         self,
         graph_input: Any,
@@ -539,6 +566,10 @@ class AgentService:
                     # 只转发模型输出的增量文本；工具节点返回的是工具结果，
                     # 由下面的 tool_result 事件专门承载。
                     if isinstance(chunk, AIMessageChunk) and node != "tools":
+                        # 推理内容单独走 thinking 事件，前端用等宽字体的思考面板展示
+                        reasoning = self._reasoning_text(chunk)
+                        if reasoning:
+                            yield "thinking", {"content": reasoning, "node": node}
                         text = msg_utils.as_text(getattr(chunk, "content", ""))
                         if text:
                             yield "token", {"content": text, "node": node}
